@@ -56,6 +56,10 @@ The local `/demo` screen is intentionally fictional. It is only for testing the 
    npm run dev -- -p 3006
    ```
 
+   On Windows, this command deliberately uses the Windows certificate store. This
+   keeps local AI features working when Norton or a corporate security product
+   inspects HTTPS traffic; do not disable certificate verification.
+
 6. Open `http://localhost:3006`, choose **Create account**, and sign in with your own email and password. PocketBase's browser admin is available locally at `http://127.0.0.1:8090/_/`; it is only for backend administration, not normal app sign-in.
 
    In development, the sign-in page also includes a red **Temporary demo bypass** button that opens `/demo` without an account. It is hidden in production.

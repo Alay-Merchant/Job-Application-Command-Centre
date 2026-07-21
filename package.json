@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node --use-system-ca ./node_modules/next/dist/bin/next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -51,6 +51,7 @@
     "typescript": "^5.7.2"
   },
   "overrides": {
+    "sharp": "0.35.3",
     "next": {
       "postcss": "8.5.10"
     }

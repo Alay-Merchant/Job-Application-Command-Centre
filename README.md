@@ -86,6 +86,18 @@ PocketBase is a persistent application server with a SQLite database and private
 - Add the variable in **Netlify → Site configuration → Environment variables**, then trigger a new deploy. The Next.js server reads it during the deployed build/runtime; changing a local `.env.local` does not update Netlify.
 - Keep PocketBase on persistent hosting with its `pb_data` volume. A local PocketBase process stops being reachable as soon as your computer or the process stops.
 
+### Quick PocketBase deployment on Railway
+
+The repository includes [`pocketbase/Dockerfile`](./pocketbase/Dockerfile), which runs the same PocketBase version and migrations as local development.
+
+1. In Railway, create a project from this GitHub repository and add a service that builds from the `pocketbase` directory.
+2. Add a Railway Volume mounted at `/pb/pb_data`. This is mandatory: it holds the SQLite database, uploaded CVs and PocketBase settings.
+3. Generate a public Railway domain for the service. The command in the Dockerfile automatically listens on Railway's `PORT` variable.
+4. Open `https://your-pocketbase-domain/_/` once and create the PocketBase superuser. In PocketBase settings, add your Netlify URL under allowed CORS origins.
+5. In Netlify, set `NEXT_PUBLIC_POCKETBASE_URL=https://your-pocketbase-domain` and the two `POCKETBASE_SUPERUSER_*` values, then redeploy the site.
+
+Never point Netlify at a local address or a temporary tunnel for production use. Keep the Railway volume and a backup of it: it is the source of truth for all application data.
+
 For local use, no Netlify configuration is needed: leave the frontend at `http://localhost:3006` and PocketBase at `http://127.0.0.1:8090`.
 
 ## Security notes

@@ -21,7 +21,12 @@ export async function POST(request: Request) {
     response.cookies.set(PB_AUTH_COOKIE, auth.token, sessionCookieOptions());
     return response;
   } catch (error) {
-    const message = error instanceof Error && /already exists|unique|email/i.test(error.message) ? "An account with that email already exists." : "Unable to create your account. Please check the details and try again.";
-    return NextResponse.json({ error: message }, { status: 400 });
+    const details = error as { message?: unknown; data?: { data?: { email?: { code?: unknown } } } };
+    const message = typeof details.message === "string" ? details.message : "";
+    const duplicateEmail = details.data?.data?.email?.code === "validation_not_unique" || /already exists|unique/i.test(message);
+    const responseMessage = duplicateEmail
+      ? "An account with that email already exists. Please sign in instead."
+      : "Unable to create your account. Please check the details and try again.";
+    return NextResponse.json({ error: responseMessage }, { status: 400 });
   }
 }

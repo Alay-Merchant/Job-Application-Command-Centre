@@ -265,8 +265,41 @@ export class PocketBaseDb {
   }
 }
 
+export function pocketBaseUrl() {
+  const configured = process.env.NEXT_PUBLIC_POCKETBASE_URL?.trim();
+  if (!configured) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("PocketBase is not configured. In Netlify, set NEXT_PUBLIC_POCKETBASE_URL to your public HTTPS PocketBase URL and redeploy.");
+    }
+    return "http://127.0.0.1:8090";
+  }
+
+  let url: URL;
+  try {
+    url = new URL(configured);
+  } catch {
+    throw new Error("NEXT_PUBLIC_POCKETBASE_URL is not a valid URL. Use your public HTTPS PocketBase URL in Netlify and redeploy.");
+  }
+  const localHost = ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+  if (process.env.NODE_ENV === "production" && (url.protocol !== "https:" || localHost)) {
+    throw new Error("Netlify needs a public HTTPS PocketBase URL. localhost and 127.0.0.1 only work on your own computer.");
+  }
+  return url.toString().replace(/\/$/, "");
+}
+
+export function pocketBaseConnectionMessage(error: unknown) {
+  const details = error as { message?: unknown; status?: unknown; originalError?: unknown };
+  const message = typeof details?.message === "string" ? details.message : "";
+  if (/PocketBase is not configured|NEXT_PUBLIC_POCKETBASE_URL|Netlify needs a public HTTPS/i.test(message)) return message;
+  const original = details?.originalError instanceof Error ? details.originalError.message : "";
+  if (details?.status === 0 || /fetch failed|network|connection|ECONNREFUSED/i.test(`${message} ${original}`)) {
+    return "Could not reach PocketBase. Check NEXT_PUBLIC_POCKETBASE_URL in Netlify, confirm the PocketBase service is online, and allow your Netlify site in PocketBase CORS settings.";
+  }
+  return null;
+}
+
 export function createRawClient(token?: string) {
-  const url = process.env.NEXT_PUBLIC_POCKETBASE_URL || "http://127.0.0.1:8090";
+  const url = pocketBaseUrl();
   const pb = new PocketBase(url);
   pb.autoCancellation(false);
   if (token) pb.authStore.save(token);

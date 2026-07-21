@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createRawClient } from "@/lib/pocketbase/compat";
+import { createRawClient, pocketBaseConnectionMessage } from "@/lib/pocketbase/compat";
 import { PB_AUTH_COOKIE, sessionCookieOptions } from "@/lib/pocketbase/server";
 
 const schema = z.object({ email: z.string().email().max(320), password: z.string().min(8).max(256) });
@@ -13,7 +13,9 @@ export async function POST(request: Request) {
     const response = NextResponse.json({ user: { id: auth.record.id, email: auth.record.email } });
     response.cookies.set(PB_AUTH_COOKIE, auth.token, sessionCookieOptions());
     return response;
-  } catch {
+  } catch (error) {
+    const backendMessage = pocketBaseConnectionMessage(error);
+    if (backendMessage) return NextResponse.json({ error: backendMessage }, { status: 503 });
     return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
   }
 }

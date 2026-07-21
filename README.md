@@ -79,6 +79,13 @@ PocketBase is a persistent application server with a SQLite database and private
 3. Add the remaining variables from `.env.example` to Netlify/Vercel. Keep `POCKETBASE_SUPERUSER_PASSWORD`, OpenAI, Adzuna, Resend, and cron secrets server-only.
 4. Set `NEXT_PUBLIC_SITE_URL` to the deployed frontend URL. If you use Netlify rather than Vercel, recreate the reminder and job-alert schedules with Netlify Scheduled Functions or another trusted scheduler that calls the protected cron routes.
 
+### Netlify account-creation checklist
+
+- `NEXT_PUBLIC_POCKETBASE_URL` must be the public **HTTPS** address of a running PocketBase instance, such as `https://pocketbase.example.com`. Do not use `http://127.0.0.1:8090` or `http://localhost:8090`: those addresses only exist on your own computer and are unreachable from Netlify.
+- In PocketBase, allow the exact Netlify site origin in its CORS settings, for example `https://your-site.netlify.app` (and your custom domain if you use one).
+- Add the variable in **Netlify → Site configuration → Environment variables**, then trigger a new deploy. The Next.js server reads it during the deployed build/runtime; changing a local `.env.local` does not update Netlify.
+- Keep PocketBase on persistent hosting with its `pb_data` volume. A local PocketBase process stops being reachable as soon as your computer or the process stops.
+
 For local use, no Netlify configuration is needed: leave the frontend at `http://localhost:3006` and PocketBase at `http://127.0.0.1:8090`.
 
 ## Security notes

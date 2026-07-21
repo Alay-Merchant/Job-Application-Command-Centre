@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createRawClient } from "@/lib/pocketbase/compat";
+import { createRawClient, pocketBaseConnectionMessage } from "@/lib/pocketbase/compat";
 import { PB_AUTH_COOKIE, sessionCookieOptions } from "@/lib/pocketbase/server";
 
 const schema = z.object({ name: z.string().trim().min(1).max(160), email: z.string().email().max(320), password: z.string().min(8).max(256) });
@@ -21,6 +21,8 @@ export async function POST(request: Request) {
     response.cookies.set(PB_AUTH_COOKIE, auth.token, sessionCookieOptions());
     return response;
   } catch (error) {
+    const backendMessage = pocketBaseConnectionMessage(error);
+    if (backendMessage) return NextResponse.json({ error: backendMessage }, { status: 503 });
     const details = error as { message?: unknown; data?: { data?: { email?: { code?: unknown } } } };
     const message = typeof details.message === "string" ? details.message : "";
     const duplicateEmail = details.data?.data?.email?.code === "validation_not_unique" || /already exists|unique/i.test(message);

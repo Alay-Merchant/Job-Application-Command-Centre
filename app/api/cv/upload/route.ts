@@ -6,6 +6,7 @@ import { cvSchema } from "@/lib/schemas";
 import { parseCvPrompt } from "@/lib/prompts";
 import { structured } from "@/lib/openai";
 import { allowAiRequest } from "@/lib/rate-limit";
+import { normalisePbRecord } from "@/lib/pocketbase/compat";
 export const runtime = "nodejs";
 const allowed = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain"];
 function hasExpectedFileSignature(mime: string, buffer: Buffer): boolean {
@@ -26,12 +27,13 @@ export async function POST(request: Request) {
     if (!rawText.trim()) throw new Error("We could not read any text from that file.");
     if (!allowAiRequest(auth.user.id)) return NextResponse.json({ error: "Daily AI generation limit reached. Please try again tomorrow." }, { status: 429 });
     const parsed = await structured(cvSchema, parseCvPrompt(rawText));
-    const { data: cv, error: insertError } = await auth.supabase.from("cv_profiles").insert({ user_id: auth.user.id, label, source: "upload", raw_text: rawText.slice(0, 50000), structured: parsed }).select().single();
-    if (insertError || !cv) throw insertError || new Error("Could not create CV profile.");
-    const path = `${auth.user.id}/${cv.id}/${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-    const { error: uploadError } = await auth.supabase.storage.from("cvs").upload(path, file, { contentType: file.type, upsert: false });
-    if (uploadError) { await auth.supabase.from("cv_profiles").delete().eq("id", cv.id).eq("user_id", auth.user.id); throw uploadError; }
-    const { data, error } = await auth.supabase.from("cv_profiles").update({ file_path: path }).eq("id", cv.id).eq("user_id", auth.user.id).select().single();
-    if (error) throw error; return NextResponse.json({ cv: data });
+    const created = await auth.pb.raw.collection("cv_profiles").create({ user_id: auth.user.id, label, source: "upload", raw_text: rawText.slice(0, 50000), structured: parsed });
+    try {
+      const updated = await auth.pb.raw.collection("cv_profiles").update(created.id, { file_path: file });
+      return NextResponse.json({ cv: normalisePbRecord(updated) });
+    } catch (error) {
+      await auth.pb.raw.collection("cv_profiles").delete(created.id).catch(() => undefined);
+      throw error;
+    }
   } catch (error) { return apiError(error); }
 }

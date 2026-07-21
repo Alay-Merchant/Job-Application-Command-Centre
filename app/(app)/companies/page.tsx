@@ -1,2 +1,8 @@
-import { CompanyList } from "@/components/companies/company-list"; import { createClient } from "@/lib/supabase/server";
-export default async function CompaniesPage() { const supabase = await createClient(); const { data } = await supabase.from("company_targets").select("*").order("fit_score", { ascending: false }); return <div className="page"><div className="mb-7"><p className="text-sm font-medium text-indigo-600">Proactive search</p><h1 className="mt-1 text-2xl font-semibold">Target companies</h1><p className="mt-2 text-sm text-slate-500">Recommendations are planning leads, not guarantees — use them to focus your research and outreach.</p></div><CompanyList initial={data || []} /></div>; }
+import { CompanyList } from "@/components/companies/company-list";
+import { createClient } from "@/lib/pocketbase/server";
+
+export default async function CompaniesPage() {
+  const pb = await createClient();
+  const { data } = await pb.from("company_targets").select("*").order("fit_score", { ascending: false });
+  return <div className="page"><div className="mb-7"><p className="text-sm font-medium text-indigo-600">Proactive search</p><h1 className="mt-1 text-2xl font-semibold">Target companies</h1><p className="mt-2 text-sm text-slate-500">Recommendations are planning leads, not guarantees — use them to focus your research and outreach.</p></div><CompanyList initial={data || []} /></div>;
+}

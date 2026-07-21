@@ -18,16 +18,17 @@ export async function POST() {
 
   try {
     const [{ data: profile }, { data: cv }, { data: existing, error: existingError }] = await Promise.all([
-      auth.supabase.from("profiles").select("preferences").eq("id", auth.user.id).single(),
-      auth.supabase.from("cv_profiles").select("structured").eq("is_default", true).maybeSingle(),
-      auth.supabase.from("company_targets").select("id, name, status").eq("user_id", auth.user.id),
+      auth.pb.from("profiles").select("preferences").eq("id", auth.user.id).single(),
+      auth.pb.from("cv_profiles").select("structured").eq("is_default", true).maybeSingle(),
+      auth.pb.from("company_targets").select("id, name, status").eq("user_id", auth.user.id),
     ]);
     if (existingError) throw existingError;
     if (!cv?.structured) throw new Error("Add and select a default CV first.");
     if (!allowAiRequest(auth.user.id)) return NextResponse.json({ error: "Daily AI generation limit reached." }, { status: 429 });
 
     const generated = await structured(companiesSchema, companiesPrompt(cv.structured, profile?.preferences || {}));
-    const existingByName = new Map((existing || []).map((company) => [normaliseCompanyName(company.name), company]));
+    const existingCompanies = (existing || []) as Array<{ id: string; name: string; status?: string }>;
+    const existingByName = new Map(existingCompanies.map((company) => [normaliseCompanyName(company.name), company]));
     const uniqueGenerated = Array.from(new Map(generated
       .map((company) => ({ ...company, name: company.name.trim() }))
       .filter((company) => company.name && normaliseCompanyName(company.name))
@@ -40,8 +41,8 @@ export async function POST() {
 
     let created: unknown[] = [];
     if (newCompanies.length) {
-      const { data, error } = await auth.supabase.from("company_targets")
-        .insert(newCompanies.map((company) => ({ ...company, user_id: auth.user.id })))
+      const { data, error } = await auth.pb.from("company_targets")
+        .insert(newCompanies.map((company) => ({ ...company, status: "suggested", user_id: auth.user.id })))
         .select();
       if (error) throw error;
       created = data || [];
@@ -50,7 +51,7 @@ export async function POST() {
     const refreshed = await Promise.all(suggestedExisting.map(async (company) => {
       const existingCompany = existingByName.get(normaliseCompanyName(company.name));
       if (!existingCompany) return null;
-      const { data, error } = await auth.supabase.from("company_targets")
+      const { data, error } = await auth.pb.from("company_targets")
         .update({ industry: company.industry, fit_score: company.fit_score, why_match: company.why_match, roles_query: company.roles_query })
         .eq("id", existingCompany.id)
         .eq("user_id", auth.user.id)

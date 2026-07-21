@@ -9,7 +9,7 @@ const schema = z.object({
   salaryMin: z.number().nonnegative().optional(),
   page: z.number().int().positive().optional(),
   matchToMe: z.boolean().optional(),
-  cvProfileId: z.string().uuid().optional(),
+  cvProfileId: z.string().regex(/^[a-z0-9]{15}$/i).optional(),
 });
 
 export async function POST(request: Request) {
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     const jobs = await searchJobs(body);
     if (!body.matchToMe) return NextResponse.json({ jobs });
 
-    let query = auth.supabase.from("cv_profiles").select("id,label,target_role,structured").eq("user_id", auth.user.id);
+    let query = auth.pb.from("cv_profiles").select("id,label,target_role,structured").eq("user_id", auth.user.id);
     if (body.cvProfileId) query = query.eq("id", body.cvProfileId);
     const { data: profiles, error } = await query;
     if (error) throw error;

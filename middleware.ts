@@ -1,3 +1,18 @@
-import { createServerClient } from "@supabase/ssr"; import { NextResponse, type NextRequest } from "next/server";
-export async function middleware(request: NextRequest) { if (request.nextUrl.pathname === "/demo") { if (process.env.NODE_ENV === "development") return NextResponse.next({ request }); return NextResponse.redirect(new URL("/login", request.url)); } let response = NextResponse.next({ request }); const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder", { cookies: { getAll: () => request.cookies.getAll(), setAll(values: any[]) { values.forEach(({ name, value }) => request.cookies.set(name, value)); response = NextResponse.next({ request }); values.forEach(({ name, value, options }) => response.cookies.set(name, value, options)); } } }); const { data: { user } } = await supabase.auth.getUser(); if (!user && request.nextUrl.pathname !== "/login" && request.nextUrl.pathname !== "/signup") { const url = request.nextUrl.clone(); url.pathname = "/login"; return NextResponse.redirect(url); } return response; }
+import { NextResponse, type NextRequest } from "next/server";
+
+const cookieName = "applied_pb_auth";
+
+export function middleware(request: NextRequest) {
+  if (request.nextUrl.pathname === "/demo") {
+    if (process.env.NODE_ENV === "development") return NextResponse.next();
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+  // The token is verified by the server component or route handler through
+  // PocketBase's authRefresh call. Edge middleware only performs the fast
+  // missing-cookie redirect and never trusts a token by itself.
+  if (!request.cookies.get(cookieName)?.value) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+  return NextResponse.next();
+}
 export const config = { matcher: ["/dashboard/:path*", "/cvs/:path*", "/jobs/:path*", "/applications/:path*", "/companies/:path*", "/coach/:path*", "/insights/:path*", "/settings/:path*", "/demo"] };

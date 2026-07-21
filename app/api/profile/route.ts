@@ -1,3 +1,25 @@
-import { NextResponse } from "next/server"; import { z } from "zod"; import { requireUser, apiError } from "@/lib/auth";
-const schema = z.object({ full_name: z.string().max(120).optional().nullable(), headline: z.string().max(200).optional().nullable(), location: z.string().max(120).optional().nullable(), phone: z.string().max(50).optional().nullable(), links: z.record(z.string()).optional(), preferences: z.record(z.unknown()).optional() });
-export async function PATCH(request: Request) { const auth = await requireUser(); if ("error" in auth) return auth.error; try { const changes = schema.parse(await request.json()); const { data, error } = await auth.supabase.from("profiles").update({ ...changes, updated_at: new Date().toISOString() }).eq("id", auth.user.id).select().single(); if (error) throw error; return NextResponse.json({ profile: data }); } catch (error) { return apiError(error); } }
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { requireUser, apiError } from "@/lib/auth";
+
+const schema = z.object({
+  full_name: z.string().max(120).optional().nullable(),
+  headline: z.string().max(200).optional().nullable(),
+  location: z.string().max(120).optional().nullable(),
+  phone: z.string().max(50).optional().nullable(),
+  links: z.record(z.string()).optional(),
+  preferences: z.record(z.unknown()).optional(),
+});
+
+export async function PATCH(request: Request) {
+  const auth = await requireUser();
+  if ("error" in auth) return auth.error;
+  try {
+    const changes = schema.parse(await request.json());
+    const { data, error } = await auth.pb.from("profiles").update(changes).eq("id", auth.user.id).select().single();
+    if (error || !data) throw error || new Error("Profile not found.");
+    return NextResponse.json({ profile: data });
+  } catch (error) {
+    return apiError(error);
+  }
+}

@@ -10,7 +10,7 @@ import { assertKitEvidence, normaliseStructured } from "@/lib/cv-context";
 
 export const runtime = "nodejs";
 
-const schema = z.object({ applicationId: z.string().uuid(), force: z.boolean().optional() });
+const schema = z.object({ applicationId: z.string().regex(/^[a-z0-9]{15}$/i), force: z.boolean().optional() });
 
 export async function POST(request: Request) {
   const auth = await requireUser();
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 
   try {
     const { applicationId, force } = schema.parse(await request.json());
-    const { data: application } = await auth.supabase
+    const { data: application } = await auth.pb
       .from("applications")
       .select("*,job:jobs(*),cv:cv_profiles(*)")
       .eq("id", applicationId)
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     const cv = normaliseStructured(application.cv.structured);
     const rawEvidence = application.cv.raw_text || "";
     const hash = kitHash(cv, application.job.description || "", rawEvidence);
-    const { data: cached } = await auth.supabase
+    const { data: cached } = await auth.pb
       .from("application_kits")
       .select("*")
       .eq("application_id", applicationId)
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       model: "gpt-4o-mini",
       ...analysis,
     };
-    const { data, error } = await auth.supabase
+    const { data, error } = await auth.pb
       .from("application_kits")
       .upsert(payload, { onConflict: "application_id" })
       .select()

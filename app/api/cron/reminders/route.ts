@@ -1,3 +1,27 @@
-import { NextResponse } from "next/server"; import { admin } from "@/lib/supabase/admin"; import { sendReminderDigest } from "@/lib/resend";
+import { NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/pocketbase/admin";
+import { sendReminderDigest } from "@/lib/resend";
 export const runtime = "nodejs";
-export async function GET(request: Request) { if (!process.env.CRON_SECRET || request.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) return NextResponse.json({ error: "Unauthorised" }, { status: 401 }); const today = new Date().toISOString().slice(0, 10); const { data: followUps, error } = await admin.from("follow_ups").select("*,application:applications(job:jobs(title,company))").eq("done", false).lte("due_date", today).is("reminded_at", null); if (error) return NextResponse.json({ error: error.message }, { status: 500 }); const byUser = new Map<string, typeof followUps>(); for (const followUp of followUps || []) byUser.set(followUp.user_id, [...(byUser.get(followUp.user_id) || []), followUp]); let sent = 0; for (const [userId, due] of byUser) { const { data: profile } = await admin.from("profiles").select("preferences").eq("id", userId).maybeSingle(); if (profile?.preferences?.reminder_emails === false) continue; const { data: user } = await admin.auth.admin.getUserById(userId); if (user?.user) { await sendReminderDigest(user.user, due); sent++; } await admin.from("follow_ups").update({ reminded_at: new Date().toISOString() }).in("id", due.map((item) => item.id)); } return NextResponse.json({ ok: true, sent }); }
+export async function GET(request: Request) {
+  if (!process.env.CRON_SECRET || request.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  try {
+    const admin = await createAdminClient();
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: followUps, error } = await admin.from("follow_ups").select("*,application:applications(job:jobs(title,company))").eq("done", false).lte("due_date", today).is("reminded_at", null);
+    if (error) throw error;
+    const byUser = new Map<string, any[]>();
+    for (const followUp of followUps || []) byUser.set(followUp.user_id, [...(byUser.get(followUp.user_id) || []), followUp]);
+    let sent = 0;
+    for (const [userId, due] of byUser) {
+      const { data: profile } = await admin.from("profiles").select("preferences").eq("id", userId).maybeSingle();
+      if (profile?.preferences?.reminder_emails === false) continue;
+      const user = await admin.raw.collection("users").getOne(userId).catch(() => null);
+      if (user) { await sendReminderDigest(user as { email?: string }, due); sent++; }
+      const { error: updateError } = await admin.from("follow_ups").update({ reminded_at: new Date().toISOString() }).in("id", due.map((item) => item.id));
+      if (updateError) throw updateError;
+    }
+    return NextResponse.json({ ok: true, sent });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Reminder run failed." }, { status: 500 });
+  }
+}

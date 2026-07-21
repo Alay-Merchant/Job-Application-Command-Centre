@@ -6,7 +6,7 @@ import { cvSchema } from "@/lib/schemas";
 export const runtime = "nodejs";
 
 const schema = z.object({
-  id: z.string().uuid().optional(),
+  id: z.string().regex(/^[a-z0-9]{15}$/i).optional(),
   label: z.string().min(1).max(80),
   target_role: z.string().max(140).optional().nullable(),
   is_default: z.boolean().optional(),
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   try {
     const body = schema.parse(await request.json());
     if (body.is_default) {
-      await auth.supabase.from("cv_profiles").update({ is_default: false }).eq("user_id", auth.user.id);
+      await auth.pb.from("cv_profiles").update({ is_default: false }).eq("user_id", auth.user.id);
     }
 
     const base = body.id
@@ -34,8 +34,8 @@ export async function POST(request: Request) {
             : body.structured,
         };
     const query = body.id
-      ? auth.supabase.from("cv_profiles").update({ ...base, updated_at: new Date().toISOString() }).eq("id", body.id).eq("user_id", auth.user.id)
-      : auth.supabase.from("cv_profiles").insert({ ...base, user_id: auth.user.id });
+      ? auth.pb.from("cv_profiles").update({ ...base, updated_at: new Date().toISOString() }).eq("id", body.id).eq("user_id", auth.user.id)
+      : auth.pb.from("cv_profiles").insert({ ...base, user_id: auth.user.id });
     const { data, error } = await query.select().single();
     if (error) throw error;
     return NextResponse.json({ cv: data });

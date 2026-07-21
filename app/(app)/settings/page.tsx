@@ -1,2 +1,8 @@
-import { SettingsForm } from "@/components/settings/settings-form"; import { createClient } from "@/lib/supabase/server";
-export default async function SettingsPage() { const supabase = await createClient(); const { data } = await supabase.from("profiles").select("*").single(); return <div className="page max-w-4xl"><div className="mb-7"><p className="text-sm font-medium text-indigo-600">Control your search</p><h1 className="mt-1 text-2xl font-semibold">Settings</h1><p className="mt-2 text-sm text-slate-500">Set your preferences, manage your data, and make the app feel like yours.</p></div><SettingsForm initial={data} /></div>; }
+import { SettingsForm } from "@/components/settings/settings-form";
+import { createClient } from "@/lib/pocketbase/server";
+
+export default async function SettingsPage() {
+  const pb = await createClient();
+  const { data } = await pb.from("profiles").select("*").single();
+  return <div className="page max-w-4xl"><div className="mb-7"><p className="text-sm font-medium text-indigo-600">Control your search</p><h1 className="mt-1 text-2xl font-semibold">Settings</h1><p className="mt-2 text-sm text-slate-500">Set your preferences, manage your data, and make the app feel like yours.</p></div><SettingsForm initial={data} /></div>;
+}

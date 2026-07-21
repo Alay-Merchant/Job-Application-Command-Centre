@@ -7,9 +7,9 @@ const createSchema = z.object({
   query: z.string().max(120),
   where_location: z.string().max(120).nullable().optional(),
   min_salary: z.number().nonnegative().nullable().optional(),
-  cv_profile_id: z.string().uuid().nullable().optional(),
+  cv_profile_id: z.string().regex(/^[a-z0-9]{15}$/i).nullable().optional(),
 });
-const updateSchema = z.object({ id: z.string().uuid(), active: z.boolean() });
+const updateSchema = z.object({ id: z.string().regex(/^[a-z0-9]{15}$/i), active: z.boolean() });
 
 export async function POST(request: Request) {
   const auth = await requireUser();
@@ -17,10 +17,10 @@ export async function POST(request: Request) {
   try {
     const body = createSchema.parse(await request.json());
     if (body.cv_profile_id) {
-      const { data: cv } = await auth.supabase.from("cv_profiles").select("id").eq("id", body.cv_profile_id).eq("user_id", auth.user.id).single();
+      const { data: cv } = await auth.pb.from("cv_profiles").select("id").eq("id", body.cv_profile_id).eq("user_id", auth.user.id).single();
       if (!cv) throw new Error("CV profile not found.");
     }
-    const { data: existing } = await auth.supabase
+    const { data: existing } = await auth.pb
       .from("saved_searches")
       .select("*")
       .eq("user_id", auth.user.id)
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       .eq("cv_profile_id", body.cv_profile_id || "")
       .maybeSingle();
     if (existing) return NextResponse.json({ search: existing, existing: true });
-    const { data, error } = await auth.supabase.from("saved_searches").insert({ ...body, user_id: auth.user.id, active: true }).select().single();
+    const { data, error } = await auth.pb.from("saved_searches").insert({ ...body, user_id: auth.user.id, active: true }).select().single();
     if (error) throw error;
     return NextResponse.json({ search: data, existing: false });
   } catch (error) {
@@ -42,7 +42,7 @@ export async function PATCH(request: Request) {
   if ("error" in auth) return auth.error;
   try {
     const { id, active } = updateSchema.parse(await request.json());
-    const { data, error } = await auth.supabase.from("saved_searches").update({ active }).eq("id", id).eq("user_id", auth.user.id).select().single();
+    const { data, error } = await auth.pb.from("saved_searches").update({ active }).eq("id", id).eq("user_id", auth.user.id).select().single();
     if (error) throw error;
     return NextResponse.json({ search: data });
   } catch (error) {

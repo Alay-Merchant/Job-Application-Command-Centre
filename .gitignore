@@ -1,7 +1,14 @@
 node_modules/
 .next/
+.next-stale-cache/
+.next-before-production-build/
 .agents/
 *.tsbuildinfo
 *.log
 .env*
 !.env.example
+pocketbase/pb_data/
+pocketbase/pocketbase.exe
+pocketbase/*.zip
+pocketbase/CHANGELOG.md
+pocketbase/LICENSE.md

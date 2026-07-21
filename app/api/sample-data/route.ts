@@ -9,18 +9,18 @@ export async function POST() {
   const auth = await requireUser();
   if ("error" in auth) return auth.error;
   try {
-    const { data: existing } = await auth.supabase.from("cv_profiles").select("id").eq("user_id", auth.user.id).limit(1);
+    const { data: existing } = await auth.pb.from("cv_profiles").select("id").eq("user_id", auth.user.id).limit(1);
     if (existing?.length) return NextResponse.json({ ok: true, existing: true });
-    const { data: cv, error: cvError } = await auth.supabase.from("cv_profiles").insert({ user_id: auth.user.id, label: "Fictional product example", target_role: "Fictional Product Manager", is_default: true, source: "manual", raw_text: structured.summary, structured }).select().single();
+    const { data: cv, error: cvError } = await auth.pb.from("cv_profiles").insert({ user_id: auth.user.id, label: "Fictional product example", target_role: "Fictional Product Manager", is_default: true, source: "manual", raw_text: structured.summary, structured }).select().single();
     if (cvError || !cv) throw cvError || new Error("Could not create sample CV.");
     const jobs = [{ user_id: auth.user.id, source: "manual", title: "Product Manager, AI", company: "Example Fintech", location: "London", description: "Fictional job used only to populate the interface.", salary_min: 100000, salary_max: 135000, currency: "GBP", url: "https://example.com/careers" }, { user_id: auth.user.id, source: "manual", title: "Investor / Portfolio Strategy", company: "Example Venture Fund", location: "London", description: "Fictional job used only to populate the interface.", salary_min: 110000, salary_max: 150000, currency: "GBP", url: "https://example.com/careers" }];
-    const { data: savedJobs, error: jobsError } = await auth.supabase.from("jobs").insert(jobs).select();
+    const { data: savedJobs, error: jobsError } = await auth.pb.from("jobs").insert(jobs).select();
     if (jobsError || !savedJobs) throw jobsError || new Error("Could not create sample jobs.");
-    const { data: application, error: appError } = await auth.supabase.from("applications").insert({ user_id: auth.user.id, job_id: savedJobs[0].id, cv_profile_id: cv.id, stage: "applied", board_order: Date.now(), next_action: "Fictional follow-up", next_action_due: new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10) }).select().single();
+    const { data: application, error: appError } = await auth.pb.from("applications").insert({ user_id: auth.user.id, job_id: savedJobs[0].id, cv_profile_id: cv.id, stage: "applied", board_order: Date.now(), next_action: "Fictional follow-up", next_action_due: new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10) }).select().single();
     if (appError || !application) throw appError || new Error("Could not create sample application.");
-    const { error: kitError } = await auth.supabase.from("application_kits").insert({ ...kit, user_id: auth.user.id, application_id: application.id, cv_profile_id: cv.id });
+    const { error: kitError } = await auth.pb.from("application_kits").insert({ ...kit, user_id: auth.user.id, application_id: application.id, cv_profile_id: cv.id });
     if (kitError) throw kitError;
-    await auth.supabase.from("company_targets").insert([{ user_id: auth.user.id, name: "Example Fintech", industry: "Fictional product company", fit_score: 82, why_match: "Fictional test recommendation.", roles_query: "product manager", status: "interested" }, { user_id: auth.user.id, name: "Example Venture Fund", industry: "Fictional venture fund", fit_score: 74, why_match: "Fictional test recommendation.", roles_query: "venture scout", status: "suggested" }]);
+    await auth.pb.from("company_targets").insert([{ user_id: auth.user.id, name: "Example Fintech", industry: "Fictional product company", fit_score: 82, why_match: "Fictional test recommendation.", roles_query: "product manager", status: "interested" }, { user_id: auth.user.id, name: "Example Venture Fund", industry: "Fictional venture fund", fit_score: 74, why_match: "Fictional test recommendation.", roles_query: "venture scout", status: "suggested" }]);
     return NextResponse.json({ ok: true });
   } catch (error) {
     return apiError(error);

@@ -9,7 +9,7 @@ import { assertCoverLetterEvidence, normaliseStructured } from "@/lib/cv-context
 
 export const runtime = "nodejs";
 
-const schema = z.object({ applicationId: z.string().uuid(), coverLetter: z.string().max(10000).optional() });
+const schema = z.object({ applicationId: z.string().regex(/^[a-z0-9]{15}$/i), coverLetter: z.string().max(10000).optional() });
 
 export async function POST(request: Request) {
   const auth = await requireUser();
@@ -17,8 +17,8 @@ export async function POST(request: Request) {
   try {
     const body = schema.parse(await request.json());
     const [{ data: application }, { data: profile }] = await Promise.all([
-      auth.supabase.from("applications").select("*,job:jobs(*),cv:cv_profiles(*)").eq("id", body.applicationId).eq("user_id", auth.user.id).single(),
-      auth.supabase.from("profiles").select("full_name,headline,location,links").eq("id", auth.user.id).maybeSingle(),
+      auth.pb.from("applications").select("*,job:jobs(*),cv:cv_profiles(*)").eq("id", body.applicationId).eq("user_id", auth.user.id).single(),
+      auth.pb.from("profiles").select("full_name,headline,location,links").eq("id", auth.user.id).maybeSingle(),
     ]);
     if (!application?.cv?.structured || !application.job) throw new Error("Application CV or job is missing.");
 
@@ -42,10 +42,10 @@ export async function POST(request: Request) {
       coverLetter = result.letter;
     }
 
-    const { data: existing } = await auth.supabase.from("application_kits").select("id").eq("application_id", body.applicationId).eq("user_id", auth.user.id).maybeSingle();
+    const { data: existing } = await auth.pb.from("application_kits").select("id").eq("application_id", body.applicationId).eq("user_id", auth.user.id).maybeSingle();
     const query = existing
-      ? auth.supabase.from("application_kits").update({ cover_letter: coverLetter, model: "gpt-4o" }).eq("id", existing.id).eq("user_id", auth.user.id)
-      : auth.supabase.from("application_kits").insert({ user_id: auth.user.id, application_id: body.applicationId, cv_profile_id: application.cv.id, input_hash: "pending-kit", model: "gpt-4o", cover_letter: coverLetter });
+      ? auth.pb.from("application_kits").update({ cover_letter: coverLetter, model: "gpt-4o" }).eq("id", existing.id).eq("user_id", auth.user.id)
+      : auth.pb.from("application_kits").insert({ user_id: auth.user.id, application_id: body.applicationId, cv_profile_id: application.cv.id, input_hash: "pending-kit", model: "gpt-4o", cover_letter: coverLetter });
     const { data, error } = await query.select().single();
     if (error) throw error;
     return NextResponse.json({ kit: data });

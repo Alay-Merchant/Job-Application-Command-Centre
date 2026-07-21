@@ -23,31 +23,46 @@ The local `/demo` screen is intentionally fictional. It is only for testing the 
    npm install
    ```
 
-2. Copy `.env.example` to `.env.local`, then supply the values below.
+2. Download the current PocketBase Windows binary from [pocketbase.io/docs](https://pocketbase.io/docs/), extract it to `pocketbase/pocketbase.exe`, and create a local PocketBase superuser. The binary and database are intentionally ignored by Git.
 
    ```bash
-   NEXT_PUBLIC_SUPABASE_URL=
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=
-   SUPABASE_SERVICE_ROLE_KEY=
+   cd pocketbase
+   .\pocketbase.exe superuser upsert admin@example.com "choose-a-long-local-password"
+   ```
+
+3. Start PocketBase. Its committed migrations in [pocketbase/pb_migrations](./pocketbase/pb_migrations) automatically create the application collections, ownership rules, indexes, and protected CV file field on first start.
+
+   ```bash
+   .\pocketbase.exe serve --http=127.0.0.1:8090 --origins=http://localhost:3006,http://127.0.0.1:3006
+   ```
+
+4. Copy `.env.example` to `.env.local`, then supply the values below. `POCKETBASE_SUPERUSER_*` are only for trusted server-side account deletion and scheduled jobs; never expose them in browser code.
+
+   ```bash
+   NEXT_PUBLIC_POCKETBASE_URL=http://127.0.0.1:8090
+   POCKETBASE_SUPERUSER_EMAIL=admin@example.com
+   POCKETBASE_SUPERUSER_PASSWORD=choose-a-long-local-password
    OPENAI_API_KEY=
    ADZUNA_APP_ID=
    ADZUNA_APP_KEY=
    RESEND_API_KEY=
    CRON_SECRET=
-   NEXT_PUBLIC_SITE_URL=http://localhost:3000
+   NEXT_PUBLIC_SITE_URL=http://localhost:3006
    ```
 
-3. In the Supabase SQL editor, run [supabase/migrations/0001_init.sql](./supabase/migrations/0001_init.sql). It creates the schema, RLS policies, ownership triggers and the private `cvs` Storage bucket policies.
-
-4. In Supabase Auth, enable Email/Password, Magic Link and Google OAuth. Add `http://localhost:3000/auth/callback` (and later the Vercel callback URL) to the allowed redirects.
-
-5. Start the app.
+5. Start the app on the same local port used by PocketBase's CORS configuration.
 
    ```bash
-   npm run dev
+   npm run dev -- -p 3006
    ```
 
-   In development, the sign-in page includes a red **Temporary demo bypass** button that opens `/demo` without an account. It is hidden in production.
+   On Windows, this command deliberately uses the Windows certificate store. This
+   keeps local AI features working when Norton or a corporate security product
+   inspects HTTPS traffic; do not disable certificate verification.
+
+6. Open `http://localhost:3006`, choose **Create account**, and sign in with your own email and password. PocketBase's browser admin is available locally at `http://127.0.0.1:8090/_/`; it is only for backend administration, not normal app sign-in.
+
+   In development, the sign-in page also includes a red **Temporary demo bypass** button that opens `/demo` without an account. It is hidden in production.
 
 ## Before applying to real roles
 
@@ -55,16 +70,20 @@ Upload and review each CV profile first. In particular, verify roles, metrics, p
 
 The application score is labelled **evidence coverage**. It is a transparent indication of how much of a role is supported by the chosen CV, not a hiring prediction or an ATS pass guarantee. Treat every generated draft as a starting point to review before submission.
 
-## Deploy to Vercel
+## Deploy with Netlify or Vercel
 
-1. Push this repository to GitHub and import it into Vercel.
-2. Add every variable from `.env.example` in Vercel. Keep `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, Adzuna, Resend and cron secrets server-only.
-3. Set `NEXT_PUBLIC_SITE_URL` to the deployed URL and add its `/auth/callback` URL in Supabase Auth.
-4. Deploy. Vercel reads [vercel.json](./vercel.json) for the daily reminder and job-alert schedules.
+PocketBase is a persistent application server with a SQLite database and private files. It **cannot run inside Netlify or Vercel functions**. For a deployed app:
+
+1. Run PocketBase on a persistent host with a mounted volume (for example, a small VPS or container host). Copy the `pocketbase/pb_migrations` folder with it and keep `pb_data` persistent and private.
+2. Set `NEXT_PUBLIC_POCKETBASE_URL` in Netlify/Vercel to the public HTTPS URL of that PocketBase service. Configure PocketBase CORS to allow the deployed app origin.
+3. Add the remaining variables from `.env.example` to Netlify/Vercel. Keep `POCKETBASE_SUPERUSER_PASSWORD`, OpenAI, Adzuna, Resend, and cron secrets server-only.
+4. Set `NEXT_PUBLIC_SITE_URL` to the deployed frontend URL. If you use Netlify rather than Vercel, recreate the reminder and job-alert schedules with Netlify Scheduled Functions or another trusted scheduler that calls the protected cron routes.
+
+For local use, no Netlify configuration is needed: leave the frontend at `http://localhost:3006` and PocketBase at `http://127.0.0.1:8090`.
 
 ## Security notes
 
-- Every user-owned table has RLS and mutation routes authenticate the user.
-- CV uploads accept PDF, DOCX or TXT only, validate MIME type, basic file signature and a 5 MB limit, and use private user-scoped Storage paths.
-- The service-role key is used only in server-side cron/export/delete flows.
+- Every user-owned PocketBase collection has an ownership API rule and mutation routes authenticate the user.
+- CV uploads accept PDF, DOCX or TXT only, validate MIME type, basic file signature and a 5 MB limit, and use a protected PocketBase file field.
+- PocketBase superuser credentials are used only in server-side cron and account-deletion flows.
 - The app validates stored AI-kit evidence against the selected CV before displaying it.

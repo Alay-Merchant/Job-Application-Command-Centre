@@ -1,2 +1,7 @@
-import { NextResponse } from "next/server"; import { createClient } from "@/lib/supabase/server";
-export async function GET(request: Request) { const url = new URL(request.url); const code = url.searchParams.get("code"); if (code) { const supabase = await createClient(); await supabase.auth.exchangeCodeForSession(code); } return NextResponse.redirect(new URL("/dashboard", url.origin)); }
+import { NextResponse } from "next/server";
+
+// Password authentication is handled through the secure Next.js auth routes.
+// PocketBase OAuth, if enabled later, uses its own `/api/oauth2-redirect` flow.
+export async function GET(request: Request) {
+  return NextResponse.redirect(new URL("/login", request.url));
+}

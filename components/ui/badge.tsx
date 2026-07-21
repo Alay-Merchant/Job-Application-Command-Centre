@@ -1,0 +1,3 @@
+import { cva, type VariantProps } from "class-variance-authority"; import { cn } from "@/lib/utils";
+const variants = cva("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium", { variants: { variant: { default: "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300", secondary: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300", outline: "border", destructive: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300" } }, defaultVariants: { variant: "default" } });
+export function Badge({ className, variant, ...props }: React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof variants>) { return <div className={cn(variants({ variant }), className)} {...props} />; }

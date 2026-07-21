@@ -1,0 +1,7 @@
+node_modules/
+.next/
+.agents/
+*.tsbuildinfo
+*.log
+.env*
+!.env.example

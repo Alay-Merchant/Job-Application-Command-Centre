@@ -1,0 +1,2 @@
+import { NextResponse } from "next/server"; import { requireUser } from "@/lib/auth";
+export async function GET(_: Request, { params }: { params: { id: string } }) { const auth = await requireUser(); if ("error" in auth) return auth.error; const { data, error } = await auth.supabase.from("coach_messages").select("*").eq("thread_id", params.id).eq("user_id", auth.user.id).order("created_at"); if (error) return NextResponse.json({ error: error.message }, { status: 400 }); return NextResponse.json({ messages: data }); }
